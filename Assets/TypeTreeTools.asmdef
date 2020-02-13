@@ -1,0 +1,17 @@
+{
+    "name": "TypeTreeTools",
+    "references": [
+        "GUID:7b2857374dbb71c4cbc174d1ac54266b"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
