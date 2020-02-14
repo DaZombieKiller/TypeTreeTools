@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Collections.Specialized;
 using Object = UnityEngine.Object;
 using UnityEngine;
 
@@ -24,9 +25,17 @@ public unsafe readonly struct NativeObject
     readonly IntPtr methodTable;
 #pragma warning restore IDE0051
     public readonly int InstanceID;
-    public readonly uint CachedTypeIndex;
+    readonly BitVector32 objectBits;
 
-    public uint RuntimeTypeIndex => CachedTypeIndex >> 0x15;
+    static readonly BitVector32.Section UnknownSection = BitVector32.CreateSection(1 << 12);
+
+    static readonly BitVector32.Section HideFlagsSection = BitVector32.CreateSection(1 << 7, UnknownSection);
+
+    static readonly BitVector32.Section RuntimeTypeIndexSection = BitVector32.CreateSection(1 << 13, HideFlagsSection);
+
+    public HideFlags HideFlags => (HideFlags)objectBits[HideFlagsSection];
+
+    public uint RuntimeTypeIndex => (uint)objectBits[RuntimeTypeIndexSection];
 
     public ClassID ClassID => (ClassID)UnityType.RuntimeTypes[RuntimeTypeIndex].PersistentTypeID;
 
