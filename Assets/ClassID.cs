@@ -1,4 +1,4 @@
-// This file was generated with Unity 2020.1.0a20.
+// This file was generated with Unity 2020.1.0a23.
 public enum ClassID
 {
     Object = 0,
