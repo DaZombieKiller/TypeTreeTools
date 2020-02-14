@@ -7,11 +7,16 @@ using UnityEngine;
 
 public unsafe readonly struct NativeObject
 {
+    static readonly Func<int, Object> ForceLoadFromInstanceID;
     static readonly Func<int, Object> FindObjectFromInstanceID;
     static readonly Func<Object, IntPtr> GetCachedPtr;
 
     static NativeObject()
     {
+        ForceLoadFromInstanceID = (Func<int, Object>)typeof(Object)
+            .GetMethod("ForceLoadFromInstanceID", BindingFlags.NonPublic | BindingFlags.Static)
+            .CreateDelegate(typeof(Func<int, Object>));
+
         FindObjectFromInstanceID = (Func<int, Object>)typeof(Object)
             .GetMethod("FindObjectFromInstanceID", BindingFlags.NonPublic | BindingFlags.Static)
             .CreateDelegate(typeof(Func<int, Object>));
@@ -77,12 +82,20 @@ public unsafe readonly struct NativeObject
 
     public static Object ToObject(NativeObject* obj)
     {
-        return FindObjectFromInstanceID(obj->InstanceID);
+        if (obj == null)
+            return null;
+
+        return ToObject(in *obj);
     }
 
     public static Object ToObject(in NativeObject obj)
     {
-        return FindObjectFromInstanceID(obj.InstanceID);
+        var managedObject = FindObjectFromInstanceID(obj.InstanceID);
+
+        if (managedObject)
+            return managedObject;
+
+        return ForceLoadFromInstanceID(obj.InstanceID);
     }
 
     public static NativeObject* FromObject(Object obj)

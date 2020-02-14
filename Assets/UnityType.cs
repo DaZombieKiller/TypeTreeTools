@@ -27,6 +27,17 @@ public unsafe struct UnityType
         get => ref *(RuntimeTypeArray*)runtimeTypes;
     }
 
+    public static ref readonly UnityType GetByClassID(ClassID id)
+    {
+        foreach (ref var type in RuntimeTypes)
+        {
+            if (type.PersistentTypeID == (int)id)
+                return ref type;
+        }
+
+        throw new ArgumentException(null, nameof(id));
+    }
+
     public bool HasTypeTree
     {
         get
