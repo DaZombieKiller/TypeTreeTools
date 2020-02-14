@@ -56,7 +56,7 @@ public unsafe struct TypeTree
                     type, name, 
                     node.ByteSize.ToString("x"),
                     node.Index.ToString("x"),
-                    node.TypeFlags,
+                    (byte)node.TypeFlags,
                     ((int)node.MetaFlags).ToString("x")
                 ));
             }
