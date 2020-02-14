@@ -85,6 +85,8 @@ public unsafe readonly struct NativeObject
     {
         switch ((ClassID)type.PersistentTypeID)
         {
+        // These types are singletons, and creating new instances of them
+        // via Produce will cause an assertion failure and crash Unity.
         case ClassID.SpriteAtlasDatabase:
             return GetSpriteAtlasDatabase();
         case ClassID.SceneVisibilityState:
@@ -96,6 +98,8 @@ public unsafe readonly struct NativeObject
         case ClassID.MonoManager:
             return GetMonoManager();
         case ClassID.GameObject:
+            // Unity will crash if Produce is used to create a GameObject.
+            // The crash is not immediate, but seemingly on the next frame.
             return FromObject(new GameObject());
         default:
             return Produce(in type, in type, 0, default, 0);
@@ -107,6 +111,11 @@ public unsafe readonly struct NativeObject
         if (obj == null)
             return;
 
+        // AssetBundle should not be destroyed via Destroy or DestroyImmediate,
+        // but rather through AssetBundle.Unload. However, because the temporary
+        // object we create is not exactly a "real" AssetBundle, doing so will
+        // spit out an error. Further down the line, the project should include
+        // a "dummy" asset bundle which will be loaded instead of using Produce.
         if (obj->ClassID == ClassID.AssetBundle || obj->ClassID.IsSingletonType())
             return;
 
