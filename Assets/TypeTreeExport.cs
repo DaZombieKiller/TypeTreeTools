@@ -48,7 +48,7 @@ public unsafe static class TypeTreeExport
 
                 var obj = NativeObject.FromType(in iter);
 
-                if (TypeTree.TryGetTypeTree(obj, out TypeTree tree))
+                if (obj != null && obj->TryGetTypeTree(out TypeTree tree))
                     tree.Dump(sw);
 
                 NativeObject.DestroyTemporary(obj);
@@ -88,7 +88,7 @@ public unsafe static class TypeTreeExport
                 }
 
                 var obj = NativeObject.FromType(in iter);
-                if (TypeTree.TryGetTypeTree(obj, out TypeTree tree))
+                if (obj != null && obj->TryGetTypeTree(out TypeTree tree))
                 {
                     // Shouldn't this write type.PersistentTypeID instead?
                     // I'm leaving it as iter.PersistentTypeID for consistency

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Collections.Specialized;
 using Object = UnityEngine.Object;
 using UnityEngine;
@@ -46,39 +45,46 @@ public unsafe readonly struct NativeObject
 
     [PdbImport("?Produce@Object@@CAPEAV1@PEBVType@Unity@@0HUMemLabelId@@W4ObjectCreationMode@@@Z")]
     static readonly ProduceDelegate Produce;
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    delegate NativeObject* ProduceDelegate(in UnityType a, in UnityType b, int instanceID, MemoryLabel label, int creationMode);
+    delegate NativeObject* ProduceDelegate(in UnityType a, in UnityType b, int instanceID, MemoryLabel label, ObjectCreationMode creationMode);
 
     [PdbImport("?GetSpriteAtlasDatabase@@YAAEAVSpriteAtlasDatabase@@XZ")]
     static readonly GetSpriteAtlasDatabaseDelegate GetSpriteAtlasDatabase;
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     delegate NativeObject* GetSpriteAtlasDatabaseDelegate();
 
     [PdbImport("?GetSceneVisibilityState@@YAAEAVSceneVisibilityState@@XZ")]
     static readonly GetSceneVisibilityStateDelegate GetSceneVisibilityState;
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     delegate NativeObject* GetSceneVisibilityStateDelegate();
 
     [PdbImport("?GetInspectorExpandedState@@YAAEAVInspectorExpandedState@@XZ")]
     static readonly GetInspectorExpandedStateDelegate GetInspectorExpandedState;
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     delegate NativeObject* GetInspectorExpandedStateDelegate();
 
     [PdbImport("?GetAnnotationManager@@YAAEAVAnnotationManager@@XZ")]
     static readonly GetAnnotationManagerDelegate GetAnnotationManager;
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     delegate NativeObject* GetAnnotationManagerDelegate();
 
     [PdbImport("?GetMonoManager@@YAAEAVMonoManager@@XZ")]
     static readonly GetMonoManagerDelegate GetMonoManager;
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     delegate NativeObject* GetMonoManagerDelegate();
+
+    [PdbImport("?GenerateTypeTree@@YAXAEBVObject@@AEAVTypeTree@@W4TransferInstructionFlags@@@Z")]
+    static readonly GenerateTypeTreeDelegate GenerateTypeTree;
+    delegate void GenerateTypeTreeDelegate(in NativeObject obj, out TypeTree tree, TransferInstructionFlags flags);
+
+    [PdbImport("?GetTypeTree@TypeTreeCache@@YA_NPEBVObject@@W4TransferInstructionFlags@@AEAVTypeTree@@@Z")]
+    static readonly GetTypeTreeDelegate GetTypeTree;
+    delegate bool GetTypeTreeDelegate(in NativeObject obj, TransferInstructionFlags flags, out TypeTree tree);
+
+    public bool TryGetTypeTree(out TypeTree tree)
+    {
+        // Unity 2019 and beyond
+        if (GetTypeTree != null)
+            return GetTypeTree(in this, 0, out tree);
+
+        // Unity 2018 and older
+        GenerateTypeTree(in this, out tree, 0);
+        return true;
+    }
 
     public static Object ToObject(NativeObject* obj)
     {
