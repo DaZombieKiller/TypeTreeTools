@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net471</TargetFramework>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Dia2Lib">
+      <HintPath>../Assets/Plugins/Dia2Lib.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

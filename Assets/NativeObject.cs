@@ -75,6 +75,10 @@ public unsafe readonly struct NativeObject
     static readonly GetTypeTreeDelegate GetTypeTree;
     delegate bool GetTypeTreeDelegate(in NativeObject obj, TransferInstructionFlags flags, out TypeTree tree);
 
+    [PdbImport("?GenerateStrippedTypeTree@@YAXAEBVObject@@AEAVTypeTree@@AEBUBuildUsageTag@@W4TransferInstructionFlags@@@Z")]
+    static readonly GenerateStrippedTypeTreeDelegate GenerateStrippedTypeTreeMethod;
+    delegate void GenerateStrippedTypeTreeDelegate(in NativeObject obj, out TypeTree tree, BuildUsageTag* tag, TransferInstructionFlags flags);
+
     public bool TryGetTypeTree(out TypeTree tree)
     {
         // Unity 2019 and beyond
@@ -84,6 +88,15 @@ public unsafe readonly struct NativeObject
         // Unity 2018 and older
         GenerateTypeTree(in this, out tree, 0);
         return true;
+    }
+
+    public void GenerateStrippedTypeTree(out TypeTree tree)
+    {
+    #if UNITY_EDITOR
+        GenerateStrippedTypeTreeMethod(in this, out tree, null, 0);
+    #else
+        TryGetTypeTree(out tree);
+    #endif
     }
 
     public static Object ToObject(NativeObject* obj)
@@ -115,6 +128,7 @@ public unsafe readonly struct NativeObject
         {
         // These types are singletons, and creating new instances of them
         // via Produce will cause an assertion failure and crash Unity.
+    #if UNITY_EDITOR
         case ClassID.SpriteAtlasDatabase:
             return GetSpriteAtlasDatabase();
         case ClassID.SceneVisibilityState:
@@ -123,6 +137,7 @@ public unsafe readonly struct NativeObject
             return GetInspectorExpandedState();
         case ClassID.AnnotationManager:
             return GetAnnotationManager();
+    #endif
         case ClassID.MonoManager:
             return GetMonoManager();
         case ClassID.GameObject:

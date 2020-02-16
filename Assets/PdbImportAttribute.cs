@@ -18,17 +18,42 @@ public sealed class PdbImportAttribute : Attribute
         SymbolName = symbolName;
     }
 
-    [InitializeOnLoadMethod]
-    [RuntimeInitializeOnLoadMethod]
-    static unsafe void Initialize()
+    static ProcessModule GetUnityModule()
     {
-        var module     = Process.GetCurrentProcess().MainModule;
+        foreach (ProcessModule module in Process.GetCurrentProcess().Modules)
+        {
+            if (module.ModuleName == "UnityPlayer.dll")
+                return module;
+        }
+
+        return Process.GetCurrentProcess().MainModule;
+    }
+
+    static unsafe void InitializeField(FieldInfo field, ProcessModule module, uint rva)
+    {
+        var address = new IntPtr(module.BaseAddress.ToInt64() + rva);
+
+        if (field.FieldType == typeof(IntPtr))
+            field.SetValue(null, address);
+        else if (field.FieldType == typeof(UIntPtr))
+            field.SetValue(null, new UIntPtr(address.ToPointer()));
+        else if (field.FieldType.IsSubclassOf(typeof(Delegate)))
+            field.SetValue(null, Marshal.GetDelegateForFunctionPointer(address, field.FieldType));
+        else
+            Debug.LogErrorFormat("{0} must be of IntPtr, UIntPtr or delegate type.", field.Name);
+    }
+
+#if UNITY_EDITOR
+    [InitializeOnLoadMethod]
+    static void InitializeWithDia()
+    {
+        var module     = GetUnityModule();
         var searchPath = Path.GetDirectoryName(module.FileName);
         var dia        = new DiaSourceClass();
         dia.loadDataForExe(module.FileName, searchPath, null);
         dia.openSession(out IDiaSession session);
 
-        foreach (FieldInfo field in TypeCache.GetFieldsWithAttribute<PdbImportAttribute>())
+        foreach (var field in TypeCache.GetFieldsWithAttribute<PdbImportAttribute>())
         {
             if (!field.IsStatic)
             {
@@ -45,20 +70,36 @@ public sealed class PdbImportAttribute : Attribute
 
             foreach (IDiaSymbol symbol in symbols)
             {
-                var rva     = symbol.relativeVirtualAddress;
-                var address = new IntPtr(module.BaseAddress.ToInt64() + rva);
-
-                if (field.FieldType == typeof(IntPtr))
-                    field.SetValue(null, address);
-                else if (field.FieldType == typeof(UIntPtr))
-                    field.SetValue(null, new UIntPtr(address.ToPointer()));
-                else if (field.FieldType.IsSubclassOf(typeof(Delegate)))
-                    field.SetValue(null, Marshal.GetDelegateForFunctionPointer(address, field.FieldType));
-                else
-                    Debug.LogErrorFormat("{0} must be of IntPtr, UIntPtr or delegate type.", field.Name);
-
+                InitializeField(field, module, symbol.relativeVirtualAddress);
                 break;
             }
         }
     }
+#else
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void InitializeWithService()
+    {
+        var module = GetUnityModule();
+
+        using (var service = new PdbService(module))
+        {
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                foreach (var type in assembly.GetTypes())
+                {
+                    foreach (var field in type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static))
+                    {
+                        var attr = field.GetCustomAttribute<PdbImportAttribute>();
+
+                        if (attr == null)
+                            continue;
+    
+                        if (service.TryGetRelativeVirtualAddress(attr.SymbolName, out uint rva))
+                            InitializeField(field, module, rva);
+                    }
+                }
+            }
+        }
+    }
+#endif
 }

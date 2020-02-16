@@ -1,7 +1,11 @@
 {
-    "name": "TypeTreeTools",
-    "references": [],
-    "includePlatforms": [],
+    "name": "TypeTreeTools.Editor",
+    "references": [
+        "GUID:d33b575a65ce5ae43987caca413cc9ec"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
     "overrideReferences": false,

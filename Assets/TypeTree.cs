@@ -41,21 +41,29 @@ public unsafe struct TypeTree
 
     public void Dump(TextWriter writer)
     {
-        for (long i = 0, n = Nodes.Length.ToInt64(); i < n; i++)
+        Dump(GetIterator(), writer);
+    }
+
+    void Dump(TypeTreeIterator it, TextWriter writer)
+    {
+        while (!it.IsNull)
         {
-            ref TypeTreeNode node = ref Nodes.GetAt(i);
+            var node = it.Node;
 
             for (int j = 0; j < node.Depth; j++)
                 writer.Write("  ");
 
             writer.WriteLine(string.Format("{0} {1} // ByteSize{{{2}}}, Index{{{3}}}, IsArray{{{4}}}, MetaFlag{{{5}}}",
-                GetTypeForNode(node),
-                GetNameForNode(node), 
+                it.Type,
+                it.Name,
                 node.ByteSize.ToString("x"),
                 node.Index.ToString("x"),
                 (byte)node.TypeFlags,
                 ((int)node.MetaFlags).ToString("x")
             ));
+
+            Dump(it.GetChildren(), writer);
+            it = it.GetNext();
         }
     }
 

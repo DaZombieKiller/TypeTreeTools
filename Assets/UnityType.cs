@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 
 public unsafe struct UnityType
 {
@@ -36,6 +37,11 @@ public unsafe struct UnityType
         }
 
         throw new ArgumentException(null, nameof(id));
+    }
+
+    public string GetName()
+    {
+        return Marshal.PtrToStringAnsi(Name);
     }
 
     public bool HasTypeTree

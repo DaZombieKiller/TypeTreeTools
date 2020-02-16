@@ -9,7 +9,7 @@ public unsafe struct TypeTreeIterator
 
     public TypeTreeIterator(IntPtr treeData)
     {
-        unknown      = IntPtr.Zero;
+        unknown      = treeData;
         typeTreeData = treeData;
         nodeIndex    = IntPtr.Zero;
     }
@@ -20,25 +20,31 @@ public unsafe struct TypeTreeIterator
 
     public uint ByteOffset => ByteOffsetGetter(in this);
 
+#if UNITY_EDITOR
     public bool HasConstantSize => HasConstantSizeGetter(in this);
+#endif
 
     public bool IsNull => typeTreeData == IntPtr.Zero;
 
     public ref readonly TypeTreeNode Node => ref *GetNode(in this);
 
-    public ref readonly TypeTreeIterator GetNext() => ref *Next(in this);
+    public ref readonly TypeTreeIterator GetNext() => ref *Next(Copy());
 
-    public ref readonly TypeTreeIterator GetLast() => ref *Last(in this);
+    public ref readonly TypeTreeIterator GetLast() => ref *Last(Copy());
 
-    public ref readonly TypeTreeIterator GetFather() => ref *Father(in this);
+    public ref readonly TypeTreeIterator GetFather() => ref *Father(Copy());
 
-    public ref readonly TypeTreeIterator GetChildren() => ref *Children(in this);
+    public ref readonly TypeTreeIterator GetChildren() => ref *Children(Copy());
 
+    TypeTreeIterator Copy() => this;
+
+#if UNITY_EDITOR
     [PdbImport("?HasConstantSize@TypeTreeIterator@@QEBA_NXZ")]
     static readonly HasConstantSizeDelegate HasConstantSizeGetter;
 
     [return: MarshalAs(UnmanagedType.U1)]
     delegate bool HasConstantSizeDelegate(in TypeTreeIterator it);
+#endif
 
     [PdbImport("?ByteOffset@TypeTreeIterator@@QEBAIXZ")]
     static readonly ByteOffsetDelegate ByteOffsetGetter;
