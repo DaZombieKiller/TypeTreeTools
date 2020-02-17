@@ -1,9 +1,11 @@
-﻿public struct MemoryLabel
+﻿using System;
+
+public readonly struct MemoryLabel
 {
-#if DEBUG
-# pragma warning disable IDE0051 // Remove unused private members
-    unsafe readonly int* unk;
-# pragma warning restore IDE0051
-#endif
-    public int ID;
+#pragma warning disable IDE0051 // Remove unused private members
+# if DEBUG
+    readonly IntPtr unk;
+# endif
+    readonly int id;
+#pragma warning restore IDE0051
 }

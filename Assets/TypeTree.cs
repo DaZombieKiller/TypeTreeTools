@@ -13,7 +13,7 @@ public unsafe struct TypeTree
 
     public ref readonly DynamicArray<byte> Strings => ref Data.Strings;
 
-    public ref readonly DynamicArray<IntPtr> ByteOffsets => ref Data.ByteOffsets;
+    public ref readonly DynamicArray<uint> ByteOffsets => ref Data.ByteOffsets;
 
     public TypeTreeIterator GetIterator()
     {
@@ -24,7 +24,7 @@ public unsafe struct TypeTree
     {
         public TypeTreeNodeArray Nodes;
         public DynamicArray<byte> Strings;
-        public DynamicArray<IntPtr> ByteOffsets;
+        public DynamicArray<uint> ByteOffsets;
     }
 
     public void Write(BinaryWriter writer)
@@ -32,49 +32,48 @@ public unsafe struct TypeTree
         writer.Write(Nodes.Length.ToInt32());
         writer.Write(Strings.Length.ToInt32());
 
-        for (int i = 0, n = Nodes.Length.ToInt32(); i < n; i++)
-            Nodes.GetAt(i).Write(writer);
+        WriteNodes(GetIterator(), writer);
 
         for (int i = 0, n = Strings.Length.ToInt32(); i < n; i++)
             writer.Write(Strings.Data[i]);
+
+        void WriteNodes(TypeTreeIterator it, BinaryWriter writer)
+        {
+            while (!it.IsNull)
+            {
+                it.Node.Write(writer);
+                WriteNodes(it.GetChildren(), writer);
+                it = it.GetNext();
+            }
+        }
     }
 
     public void Dump(TextWriter writer)
     {
         Dump(GetIterator(), writer);
-    }
 
-    void Dump(TypeTreeIterator it, TextWriter writer)
-    {
-        while (!it.IsNull)
+        void Dump(TypeTreeIterator it, TextWriter writer)
         {
-            var node = it.Node;
+            while (!it.IsNull)
+            {
+                var node = it.Node;
 
-            for (int j = 0; j < node.Depth; j++)
-                writer.Write("  ");
+                for (int j = 0; j < node.Depth; j++)
+                    writer.Write("  ");
 
-            writer.WriteLine(string.Format("{0} {1} // ByteSize{{{2}}}, Index{{{3}}}, IsArray{{{4}}}, MetaFlag{{{5}}}",
-                it.Type,
-                it.Name,
-                node.ByteSize.ToString("x"),
-                node.Index.ToString("x"),
-                (byte)node.TypeFlags,
-                ((int)node.MetaFlags).ToString("x")
-            ));
+                writer.WriteLine(string.Format("{0} {1} // ByteSize{{{2}}}, Index{{{3}}}, IsArray{{{4}}}, MetaFlag{{{5}}}",
+                    it.Type,
+                    it.Name,
+                    node.ByteSize.ToString("x"),
+                    node.Index.ToString("x"),
+                    (byte)node.TypeFlags,
+                    ((int)node.MetaFlags).ToString("x")
+                ));
 
-            Dump(it.GetChildren(), writer);
-            it = it.GetNext();
+                Dump(it.GetChildren(), writer);
+                it = it.GetNext();
+            }
         }
-    }
-
-    public string GetTypeForNode(in TypeTreeNode node)
-    {
-        return GetNodeString(node.TypeOffset);
-    }
-
-    public string GetNameForNode(in TypeTreeNode node)
-    {
-        return GetNodeString(node.NameOffset);
     }
 
     string GetNodeString(int offset)
