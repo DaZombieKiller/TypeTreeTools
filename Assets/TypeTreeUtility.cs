@@ -41,7 +41,7 @@ public static class TypeTreeUtility
             }
 
             var obj = NativeObject.FromType(in iter);
-            if (obj != null && obj->TryGetTypeTree(out TypeTree tree))
+            if (obj != null && obj->TryGetTypeTree(TransferInstructionFlags.SerializeGameRelease, out TypeTree tree))
             {
                 // Shouldn't this write type.PersistentTypeID instead?
                 // I'm leaving it as iter.PersistentTypeID for consistency
@@ -99,7 +99,7 @@ public static class TypeTreeUtility
 
             var obj = NativeObject.FromType(in iter);
 
-            if (obj != null && obj->TryGetTypeTree(out TypeTree tree))
+            if (obj != null && obj->TryGetTypeTree(TransferInstructionFlags.SerializeGameRelease, out TypeTree tree))
             {
                 tree.Dump(tw);
             }

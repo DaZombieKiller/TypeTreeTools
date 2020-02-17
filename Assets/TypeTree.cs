@@ -36,43 +36,43 @@ public unsafe struct TypeTree
 
         for (int i = 0, n = Strings.Length.ToInt32(); i < n; i++)
             writer.Write(Strings.Data[i]);
+    }
 
-        void WriteNodes(TypeTreeIterator it, BinaryWriter writer)
+    static void WriteNodes(TypeTreeIterator it, BinaryWriter writer)
+    {
+        while (!it.IsNull)
         {
-            while (!it.IsNull)
-            {
-                it.Node.Write(writer);
-                WriteNodes(it.GetChildren(), writer);
-                it = it.GetNext();
-            }
+            it.Node.Write(writer);
+            WriteNodes(it.GetChildren(), writer);
+            it = it.GetNext();
         }
     }
 
     public void Dump(TextWriter writer)
     {
-        Dump(GetIterator(), writer);
+        DumpNodes(GetIterator(), writer);
+    }
 
-        void Dump(TypeTreeIterator it, TextWriter writer)
+    static void DumpNodes(TypeTreeIterator it, TextWriter writer)
+    {
+        while (!it.IsNull)
         {
-            while (!it.IsNull)
-            {
-                var node = it.Node;
+            var node = it.Node;
 
-                for (int j = 0; j < node.Depth; j++)
-                    writer.Write("  ");
+            for (int j = 0; j < node.Depth; j++)
+                writer.Write("  ");
 
-                writer.WriteLine(string.Format("{0} {1} // ByteSize{{{2}}}, Index{{{3}}}, IsArray{{{4}}}, MetaFlag{{{5}}}",
-                    it.Type,
-                    it.Name,
-                    node.ByteSize.ToString("x"),
-                    node.Index.ToString("x"),
-                    (byte)node.TypeFlags,
-                    ((int)node.MetaFlags).ToString("x")
-                ));
+            writer.WriteLine(string.Format("{0} {1} // ByteSize{{{2}}}, Index{{{3}}}, IsArray{{{4}}}, MetaFlag{{{5}}}",
+                it.Type,
+                it.Name,
+                node.ByteSize.ToString("x"),
+                node.Index.ToString("x"),
+                (byte)node.TypeFlags,
+                ((int)node.MetaFlags).ToString("x")
+            ));
 
-                Dump(it.GetChildren(), writer);
-                it = it.GetNext();
-            }
+            DumpNodes(it.GetChildren(), writer);
+            it = it.GetNext();
         }
     }
 

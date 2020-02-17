@@ -22,7 +22,7 @@ public struct TypeTreeNode
         var native     = NativeObject.FromObject(gameObject);
         var size       = sizeof(TypeTreeNode);
 
-        if (native->TryGetTypeTree(out TypeTree tree))
+        if (native->TryGetTypeTree(TransferInstructionFlags.SerializeGameRelease, out TypeTree tree))
         {
             var it     = tree.GetIterator().GetChildren();
             ref var n0 = ref Unsafe.AsRef(in it.Node);

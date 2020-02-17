@@ -79,23 +79,23 @@ public unsafe readonly struct NativeObject
     static readonly GenerateStrippedTypeTreeDelegate GenerateStrippedTypeTreeMethod;
     delegate void GenerateStrippedTypeTreeDelegate(in NativeObject obj, out TypeTree tree, BuildUsageTag* tag, TransferInstructionFlags flags);
 
-    public bool TryGetTypeTree(out TypeTree tree)
+    public bool TryGetTypeTree(TransferInstructionFlags flags, out TypeTree tree)
     {
         // Unity 2019 and beyond
         if (GetTypeTree != null)
-            return GetTypeTree(in this, 0, out tree);
+            return GetTypeTree(in this, flags, out tree);
 
         // Unity 2018 and older
-        GenerateTypeTree(in this, out tree, 0);
+        GenerateTypeTree(in this, out tree, flags);
         return true;
     }
 
-    public void GenerateStrippedTypeTree(out TypeTree tree)
+    public void GenerateStrippedTypeTree(TransferInstructionFlags flags, out TypeTree tree)
     {
     #if UNITY_EDITOR
-        GenerateStrippedTypeTreeMethod(in this, out tree, null, 0);
+        GenerateStrippedTypeTreeMethod(in this, out tree, null, flags);
     #else
-        TryGetTypeTree(out tree);
+        TryGetTypeTree(flags, out tree);
     #endif
     }
 
