@@ -84,10 +84,6 @@ public unsafe struct UnityType
             // Investigate
             switch ((ClassID)PersistentTypeID)
             {
-            case ClassID.MonoBehaviour:
-            case ClassID.ScriptedImporter:
-            case ClassID.SerializableManagedHost:
-            case ClassID.SerializableManagedRefTestClass:
             case ClassID.Vector3f:
             case ClassID.AudioMixerLiveUpdateBool:
             case ClassID.@bool:
