@@ -45,7 +45,7 @@ public unsafe struct UnityType
     {
         if (GetTypeTree != null)
         {
-            GetTypeTree(GetScriptingClassPtr(), 0, out tree);
+            GetTypeTree(GetScriptingClassPtr(), flags, out tree);
             return true;
         }
 
