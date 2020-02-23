@@ -81,13 +81,21 @@ public unsafe readonly struct NativeObject
 
     public bool TryGetTypeTree(TransferInstructionFlags flags, out TypeTree tree)
     {
-        // Unity 2019 and beyond
         if (GetTypeTree != null)
-            return GetTypeTree(in this, flags, out tree);
+        {
+            // Unity 2019 and beyond
+            GetTypeTree(in this, flags, out tree);
+            return true;
+        }
+        else if (GenerateTypeTree != null)
+        {
+            // Unity 2018 and older
+            GenerateTypeTree(in this, out tree, flags);
+            return true;
+        }
 
-        // Unity 2018 and older
-        GenerateTypeTree(in this, out tree, flags);
-        return true;
+        tree = default;
+        return false;
     }
 
     public void GenerateStrippedTypeTree(TransferInstructionFlags flags, out TypeTree tree)
@@ -119,6 +127,9 @@ public unsafe readonly struct NativeObject
 
     public static NativeObject* FromObject(Object obj)
     {
+        if (obj == null)
+            return null;
+
         return (NativeObject*)GetCachedPtr(obj);
     }
 
