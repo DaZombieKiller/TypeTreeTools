@@ -10,6 +10,7 @@ public enum TransferInstructionFlags
     SerializeDebugProperties                = 1 << 4,
     BuildPlayerOnlySerializeBuildProperties = 1 << 6,
     SerializeGameRelease                    = 1 << 8,
+    SerializeForPrefabSystem                = 1 << 14,
     PerformUnloadDependencyTracking         = 1 << 25,
     AllowTextSerialization                  = 1 << 31,
 }
