@@ -1,12 +1,11 @@
 ﻿using System;
-using System.IO;
 using System.Reflection;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using UnityEditor;
-using UnityEngine;
-using Dia2Lib;
 using Debug = UnityEngine.Debug;
+#if !UNITY_EDITOR
+using UnityEngine;
+#endif
 
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class PdbImportAttribute : Attribute
@@ -18,21 +17,8 @@ public sealed class PdbImportAttribute : Attribute
         SymbolName = symbolName;
     }
 
-    static ProcessModule GetUnityModule()
+    static unsafe void InitializeField(FieldInfo field, IntPtr address)
     {
-        foreach (ProcessModule module in Process.GetCurrentProcess().Modules)
-        {
-            if (module.ModuleName == "UnityPlayer.dll")
-                return module;
-        }
-
-        return Process.GetCurrentProcess().MainModule;
-    }
-
-    static unsafe void InitializeField(FieldInfo field, ProcessModule module, uint rva)
-    {
-        var address = new IntPtr(module.BaseAddress.ToInt64() + rva);
-
         if (field.FieldType == typeof(IntPtr))
             field.SetValue(null, address);
         else if (field.FieldType == typeof(UIntPtr))
@@ -45,61 +31,36 @@ public sealed class PdbImportAttribute : Attribute
 
 #if UNITY_EDITOR
     [InitializeOnLoadMethod]
-    static void InitializeWithDia()
-    {
-        var module     = GetUnityModule();
-        var searchPath = Path.GetDirectoryName(module.FileName);
-        var dia        = new DiaSourceClass();
-        dia.loadDataForExe(module.FileName, searchPath, null);
-        dia.openSession(out IDiaSession session);
-
-        foreach (var field in TypeCache.GetFieldsWithAttribute<PdbImportAttribute>())
-        {
-            if (!field.IsStatic)
-            {
-                Debug.LogErrorFormat("{0} must be static.", field.Name);
-                continue;
-            }
-
-            session.globalScope.findChildren(
-                SymTagEnum.SymTagPublicSymbol,
-                field.GetCustomAttribute<PdbImportAttribute>().SymbolName,
-                compareFlags: 0u,
-                out IDiaEnumSymbols symbols
-            );
-
-            foreach (IDiaSymbol symbol in symbols)
-            {
-                InitializeField(field, module, symbol.relativeVirtualAddress);
-                break;
-            }
-        }
-    }
 #else
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+#endif
     static void InitializeWithService()
     {
-        var module = GetUnityModule();
-
-        using (var service = new PdbService(module))
+        using (var service = new PdbService())
         {
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                foreach (var type in assembly.GetTypes())
-                {
-                    foreach (var field in type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static))
-                    {
-                        var attr = field.GetCustomAttribute<PdbImportAttribute>();
 
-                        if (attr == null)
-                            continue;
-    
-                        if (service.TryGetRelativeVirtualAddress(attr.SymbolName, out uint rva))
-                            InitializeField(field, module, rva);
-                    }
+#if !UNITY_EDITOR || !UNITY_2020_1_OR_NEWER
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var type in assembly.GetTypes())
+            foreach (var field in type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static))
+#else
+            foreach (var field in TypeCache.GetFieldsWithAttribute<PdbImportAttribute>())
+#endif
+            {
+                if (!field.IsStatic)
+                {
+                    Debug.LogErrorFormat("{0} must be static.", field.Name);
+                    continue;
                 }
+
+                var attr = field.GetCustomAttribute<PdbImportAttribute>();
+
+                if (attr == null)
+                    continue;
+    
+                if (service.TryGetAddressForSymbol(attr.SymbolName, out IntPtr address))
+                    InitializeField(field, address);
             }
         }
     }
-#endif
 }

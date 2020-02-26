@@ -18,7 +18,7 @@ public static class TypeTreeUtility
         bw.Write(buffer);
     }
 
-    public static unsafe void WriteDataFile(BinaryWriter bw)
+    public static unsafe void WriteDataFile(PdbService service, TransferInstructionFlags flags, BinaryWriter bw)
     {
         foreach (char c in Application.unityVersion)
             bw.Write((byte)c);
@@ -40,8 +40,8 @@ public static class TypeTreeUtility
                 iter = ref *iter.BaseClass;
             }
 
-            var obj = NativeObject.FromType(in iter);
-            if (obj != null && obj->TryGetTypeTree(TransferInstructionFlags.SerializeGameRelease, out TypeTree tree))
+            var obj = NativeObject.FromType(ref iter, service);
+            if (obj != null && obj->TryGetTypeTree(flags, out TypeTree tree))
             {
                 // Shouldn't this write type.PersistentTypeID instead?
                 // I'm leaving it as iter.PersistentTypeID for consistency
@@ -66,7 +66,7 @@ public static class TypeTreeUtility
         bw.Write(typeCount);
     }
     
-    public static unsafe void WriteDumpFile(TextWriter tw)
+    public static unsafe void WriteDumpFile(PdbService service, TransferInstructionFlags flags, TextWriter tw)
     {
         foreach (ref var type in UnityType.RuntimeTypes)
         {
@@ -92,22 +92,17 @@ public static class TypeTreeUtility
                 tw.WriteLine("// {0} is abstract", iter.GetName());
 
                 if (iter.BaseClass == null)
-                    goto NextType;
+                    break;
 
                 iter = ref *iter.BaseClass;
             }
 
-            var obj = NativeObject.FromType(in iter);
+            var obj = NativeObject.FromType(ref type, service);
 
-            if (obj != null && obj->TryGetTypeTree(TransferInstructionFlags.SerializeGameRelease, out TypeTree tree))
-            {
+            if (obj != null && obj->TryGetTypeTree(flags, out var tree))
                 tree.Dump(tw);
-            }
 
             NativeObject.DestroyTemporary(obj);
-
-        NextType:
-            continue;
         }
     }
 

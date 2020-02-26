@@ -8,22 +8,24 @@ public unsafe static class TypeTreeExport
     [MenuItem("Tools/Type Tree/Generate structs.dump")]
     static void GenerateStructsDump()
     {
+        using (var sv = new PdbService())
         using (var fs = File.OpenWrite("structs.dump"))
         using (var sw = new StreamWriter(fs))
         {
             fs.SetLength(0);
-            TypeTreeUtility.WriteDumpFile(sw);
+            TypeTreeUtility.WriteDumpFile(sv, TransferInstructionFlags.SerializeGameRelease, sw);
         }
     }
 
     [MenuItem("Tools/Type Tree/Generate structs.dat")]
     static void GenerateStructsDat()
     {
+        using (var sv = new PdbService())
         using (var fs = File.OpenWrite("structs.dat"))
         using (var bw = new BinaryWriter(fs))
         {
             fs.SetLength(0);
-            TypeTreeUtility.WriteDataFile(bw);
+            TypeTreeUtility.WriteDataFile(sv, TransferInstructionFlags.SerializeGameRelease, bw);
         }
     }
 

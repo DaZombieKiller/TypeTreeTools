@@ -23,36 +23,6 @@ public unsafe struct UnityType
     [PdbImport("?ms_runtimeTypes@RTTI@@0URuntimeTypeArray@1@A")]
     static readonly IntPtr runtimeTypes;
 
-    [PdbImport("?TypeToScriptingType@Scripting@@YA?AVScriptingClassPtr@@PEBVType@Unity@@@Z")]
-    static readonly TypeToScriptingTypeDelegate TypeToScriptingType;
-    delegate IntPtr TypeToScriptingTypeDelegate(out IntPtr scripting, in UnityType type);
-
-    [PdbImport("?GetTypeTree@TypeTreeCache@@YA_NVScriptingClassPtr@@W4TransferInstructionFlags@@AEAVTypeTree@@@Z")]
-    static readonly GetTypeTreeDelegate GetTypeTree;
-    delegate bool GetTypeTreeDelegate(IntPtr classPtr, TransferInstructionFlags flags, out TypeTree tree);
-
-    public IntPtr GetScriptingClassPtr()
-    {
-        var ptr = TypeToScriptingType(out _, in this);
-
-        if (ptr != IntPtr.Zero)
-            return *(IntPtr*)ptr;
-
-        return ptr;
-    }
-
-    public bool TryGetTypeTree(TransferInstructionFlags flags, out TypeTree tree)
-    {
-        if (GetTypeTree != null)
-        {
-            GetTypeTree(GetScriptingClassPtr(), flags, out tree);
-            return true;
-        }
-
-        tree = default;
-        return false;
-    }
-
     public static ref readonly RuntimeTypeArray RuntimeTypes
     {
         get => ref *(RuntimeTypeArray*)runtimeTypes;
@@ -71,7 +41,26 @@ public unsafe struct UnityType
 
     public string GetName()
     {
+        if (Name == IntPtr.Zero)
+            return string.Empty;
+
         return Marshal.PtrToStringAnsi(Name);
+    }
+
+    public string GetNamespace()
+    {
+        if (NativeNamespace == IntPtr.Zero)
+            return string.Empty;
+
+        return Marshal.PtrToStringAnsi(NativeNamespace);
+    }
+
+    public string GetModule()
+    {
+        if (Module == IntPtr.Zero)
+            return string.Empty;
+
+        return Marshal.PtrToStringAnsi(Module);
     }
 
     public bool HasTypeTree

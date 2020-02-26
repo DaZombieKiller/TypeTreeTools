@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 
 public unsafe struct TypeTree
@@ -59,6 +58,9 @@ public unsafe struct TypeTree
         {
             var node = it.Node;
 
+            if (node.Index < 0)
+                goto Next;
+
             for (int j = 0; j < node.Depth; j++)
                 writer.Write("  ");
 
@@ -71,14 +73,9 @@ public unsafe struct TypeTree
                 ((int)node.MetaFlags).ToString("x")
             ));
 
+        Next:
             DumpNodes(it.GetChildren(), writer);
             it = it.GetNext();
         }
-    }
-
-    string GetNodeString(int offset)
-    {
-        var buffer = offset < 0 ? CommonString.BufferBegin : (IntPtr)Strings.Data;
-        return Marshal.PtrToStringAnsi(IntPtr.Add(buffer, offset & 0x7fffffff));
     }
 }

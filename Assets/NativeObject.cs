@@ -1,10 +1,31 @@
 ﻿using System;
 using System.Reflection;
 using System.Collections.Specialized;
+using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using Object = UnityEngine.Object;
 using UnityEngine;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
-public unsafe readonly struct NativeObject
+// I don't know the actual size of the vtable, but 60 pointers is big enough
+// to prevent a hard crash when allocating a custom one for use with internal
+// type tree APIs (at least on Unity 2020) so it's good enough.
+[StructLayout(LayoutKind.Sequential, Size = 8 * 60)]
+public struct ObjectMethodTable
+{
+    readonly IntPtr unknown0;
+    readonly IntPtr unknown1;
+    readonly IntPtr unknown2;
+    readonly IntPtr unknown3;
+    readonly IntPtr unknown4;
+    readonly IntPtr unknown5;
+    readonly IntPtr unknown6;
+    readonly IntPtr unknown7;
+    public IntPtr GetTypeVirtualInternal;
+}
+
+public unsafe struct NativeObject
 {
     static readonly Func<int, Object> ForceLoadFromInstanceID;
     static readonly Func<int, Object> FindObjectFromInstanceID;
@@ -25,11 +46,9 @@ public unsafe readonly struct NativeObject
             .CreateDelegate(typeof(Func<Object, IntPtr>));
     }
 
-#pragma warning disable IDE0051 // Remove unused private members
-    readonly IntPtr methodTable;
-#pragma warning restore IDE0051
-    public readonly int InstanceID;
-    readonly BitVector32 objectBits;
+    public ObjectMethodTable* MethodTable;
+    public int InstanceID;
+    BitVector32 objectBits;
 
     static readonly BitVector32.Section UnknownSection = BitVector32.CreateSection(1 << 12);
 
@@ -37,9 +56,17 @@ public unsafe readonly struct NativeObject
 
     static readonly BitVector32.Section RuntimeTypeIndexSection = BitVector32.CreateSection(1 << 13, HideFlagsSection);
 
-    public HideFlags HideFlags => (HideFlags)objectBits[HideFlagsSection];
+    public HideFlags HideFlags
+    {
+        get => (HideFlags)objectBits[HideFlagsSection];
+        set => objectBits[HideFlagsSection] = (int)value;
+    }
 
-    public uint RuntimeTypeIndex => (uint)objectBits[RuntimeTypeIndexSection];
+    public uint RuntimeTypeIndex
+    {
+        get => (uint)objectBits[RuntimeTypeIndexSection];
+        set => objectBits[RuntimeTypeIndexSection] = (int)value;
+    }
 
     public ClassID ClassID => (ClassID)UnityType.RuntimeTypes[RuntimeTypeIndex].PersistentTypeID;
 
@@ -75,9 +102,9 @@ public unsafe readonly struct NativeObject
     static readonly GetTypeTreeDelegate GetTypeTree;
     delegate bool GetTypeTreeDelegate(in NativeObject obj, TransferInstructionFlags flags, out TypeTree tree);
 
-    [PdbImport("?GenerateStrippedTypeTree@@YAXAEBVObject@@AEAVTypeTree@@AEBUBuildUsageTag@@W4TransferInstructionFlags@@@Z")]
-    static readonly GenerateStrippedTypeTreeDelegate GenerateStrippedTypeTreeMethod;
-    delegate void GenerateStrippedTypeTreeDelegate(in NativeObject obj, out TypeTree tree, BuildUsageTag* tag, TransferInstructionFlags flags);
+    [PdbImport("?DestroySingleObject@@YAXPEAVObject@@@Z")]
+    static readonly DestroySingleObjectDelegate DestroySingleObject;
+    unsafe delegate void DestroySingleObjectDelegate(NativeObject* obj);
 
     public bool TryGetTypeTree(TransferInstructionFlags flags, out TypeTree tree)
     {
@@ -96,15 +123,6 @@ public unsafe readonly struct NativeObject
 
         tree = default;
         return false;
-    }
-
-    public void GenerateStrippedTypeTree(TransferInstructionFlags flags, out TypeTree tree)
-    {
-    #if UNITY_EDITOR
-        GenerateStrippedTypeTreeMethod(in this, out tree, null, flags);
-    #else
-        TryGetTypeTree(flags, out tree);
-    #endif
     }
 
     public static Object ToObject(NativeObject* obj)
@@ -133,7 +151,7 @@ public unsafe readonly struct NativeObject
         return (NativeObject*)GetCachedPtr(obj);
     }
 
-    public static NativeObject* FromType(in UnityType type)
+    public static NativeObject* FromType(ref UnityType type, PdbService service)
     {
         switch ((ClassID)type.PersistentTypeID)
         {
@@ -156,7 +174,14 @@ public unsafe readonly struct NativeObject
             // The crash is not immediate, but seemingly on the next frame.
             return FromObject(new GameObject());
         default:
-            return Produce(in type, in type, 0, default, 0);
+            // If the type is abstract, we need to perform some voodoo to make it producible.
+            if (type.IsAbstract)
+            {
+                using (new ProduceAbstractScope(service, (UnityType*)Unsafe.AsPointer(ref type)))
+                    return Produce(in type, in type, 0, default, ObjectCreationMode.Default);
+            }
+
+            return Produce(in type, in type, 0, default, ObjectCreationMode.Default);
         }
     }
 
@@ -164,6 +189,17 @@ public unsafe readonly struct NativeObject
     {
         if (obj == null)
             return;
+
+        // This type may have been forcefully produced from an abstract type.
+        // We'll need to free the custom method table as well as use a special
+        // method for destroying the object.
+        if (UnityType.RuntimeTypes[obj->RuntimeTypeIndex].IsAbstract)
+        {
+            var methodTable = obj->MethodTable;
+            DestroySingleObject(obj);
+            UnsafeUtility.Free(methodTable, Allocator.Persistent);
+            return;
+        }
 
         // AssetBundle should not be destroyed via Destroy or DestroyImmediate,
         // but rather through AssetBundle.Unload. However, because the temporary
