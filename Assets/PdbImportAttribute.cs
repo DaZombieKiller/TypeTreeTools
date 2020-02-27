@@ -17,35 +17,22 @@ public sealed class PdbImportAttribute : Attribute
         SymbolName = symbolName;
     }
 
-    static unsafe void InitializeField(FieldInfo field, IntPtr address)
-    {
-        if (field.FieldType == typeof(IntPtr))
-            field.SetValue(null, address);
-        else if (field.FieldType == typeof(UIntPtr))
-            field.SetValue(null, new UIntPtr(address.ToPointer()));
-        else if (field.FieldType.IsSubclassOf(typeof(Delegate)))
-            field.SetValue(null, Marshal.GetDelegateForFunctionPointer(address, field.FieldType));
-        else
-            Debug.LogErrorFormat("{0} must be of IntPtr, UIntPtr or delegate type.", field.Name);
-    }
-
 #if UNITY_EDITOR
     [InitializeOnLoadMethod]
 #else
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 #endif
-    static void InitializeWithService()
+    static unsafe void InitializeWithService()
     {
         using (var service = new PdbService())
         {
-
-#if !UNITY_EDITOR || !UNITY_2020_1_OR_NEWER
+        #if !UNITY_EDITOR || !UNITY_2020_1_OR_NEWER
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             foreach (var type in assembly.GetTypes())
             foreach (var field in type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static))
-#else
+        #else
             foreach (var field in TypeCache.GetFieldsWithAttribute<PdbImportAttribute>())
-#endif
+        #endif
             {
                 if (!field.IsStatic)
                 {
@@ -57,9 +44,18 @@ public sealed class PdbImportAttribute : Attribute
 
                 if (attr == null)
                     continue;
-    
+
                 if (service.TryGetAddressForSymbol(attr.SymbolName, out IntPtr address))
-                    InitializeField(field, address);
+                {
+                    if (field.FieldType == typeof(IntPtr))
+                        field.SetValue(null, address);
+                    else if (field.FieldType == typeof(UIntPtr))
+                        field.SetValue(null, new UIntPtr(address.ToPointer()));
+                    else if (field.FieldType.IsSubclassOf(typeof(Delegate)))
+                        field.SetValue(null, Marshal.GetDelegateForFunctionPointer(address, field.FieldType));
+                    else
+                        Debug.LogErrorFormat("{0} must be of IntPtr, UIntPtr or delegate type.", field.Name);
+                }
             }
         }
     }

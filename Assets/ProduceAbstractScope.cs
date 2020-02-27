@@ -46,9 +46,9 @@ public unsafe struct ProduceAbstractScope : IDisposable
 
         constructorHandle = GCHandle.Alloc(ctor, GCHandleType.Pinned);
 
-        // We need to override the 'produce helper' so that attempting to produce the
-        // type will no longer result in an error. Additionally, we need to override
-        // GetTypeVirtualInternal method, to avoid errors on types without their own
+        // We need to override the 'produce helper' so that attempting to produce
+        // the type will no longer result in an error. Additionally, we override the
+        // GetTypeVirtualInternal method to avoid errors on types without their own
         // constructors.
         var getType   = CreateGetTypeDelegate(type->RuntimeTypeIndex);
         getTypeHandle = GCHandle.Alloc(getType, GCHandleType.Pinned);

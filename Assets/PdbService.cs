@@ -91,6 +91,18 @@ public class PdbService : IDisposable
         return false;
     }
 
+    public bool TryGetDelegateForSymbol(string symbolName, Type delegateType, out Delegate method)
+    {
+        if (TryGetAddressForSymbol(symbolName, out IntPtr address))
+        {
+            method = Marshal.GetDelegateForFunctionPointer(address, delegateType);
+            return true;
+        }
+
+        method = null;
+        return false;
+    }
+
     public bool TryGetDelegateForSymbol<T>(string symbolName, out T method)
         where T : Delegate
     {

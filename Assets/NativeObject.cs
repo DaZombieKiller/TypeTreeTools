@@ -190,7 +190,7 @@ public unsafe struct NativeObject
         if (obj == null)
             return;
 
-        // This type may have been forcefully produced from an abstract type.
+        // The object may have been forcefully produced from an abstract type.
         // We'll need to free the custom method table as well as use a special
         // method for destroying the object.
         if (UnityType.RuntimeTypes[obj->RuntimeTypeIndex].IsAbstract)
