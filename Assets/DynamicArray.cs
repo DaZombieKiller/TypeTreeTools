@@ -1,25 +1,32 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+#if UNITY_64
+using nint = System.Int64;
+#else
+using nint = System.Int32;
+#endif
 
-public readonly struct DynamicArray<T>
+public readonly unsafe struct DynamicArray<T>
     where T : unmanaged
 {
-    public readonly unsafe T* Data;
+    readonly T* data;
     public readonly MemoryLabel Label;
-    public readonly IntPtr Length;
-    public readonly IntPtr Capacity;
-}
+    public readonly nint Length;
+    public readonly nint Capacity;
 
-public readonly struct TypeTreeNodeArray
-{
-    public readonly unsafe TypeTreeNode* Data;
-    public readonly MemoryLabel Label;
-    public readonly IntPtr Length;
-    public readonly IntPtr Capacity;
-
-    public unsafe ref TypeTreeNode GetAt(long index)
+    public ref T this[nint index]
     {
-        var offset = new IntPtr(index * TypeTreeNode.Size);
-        return ref Unsafe.AddByteOffset(ref *Data, offset);
+        get
+        {
+            if (index < 0 || index >= Length)
+                throw new IndexOutOfRangeException();
+
+            return ref Unsafe.Add(ref *data, new IntPtr(index));
+        }
+    }
+
+    public ref T GetPinnableReference()
+    {
+        return ref *data;
     }
 }

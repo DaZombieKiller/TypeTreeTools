@@ -8,24 +8,22 @@ public unsafe static class TypeTreeExport
     [MenuItem("Tools/Type Tree/Generate structs.dump")]
     static void GenerateStructsDump()
     {
-        using (var sv = new PdbService())
         using (var fs = File.OpenWrite("structs.dump"))
         using (var sw = new StreamWriter(fs))
         {
             fs.SetLength(0);
-            TypeTreeUtility.WriteDumpFile(sv, TransferInstructionFlags.SerializeGameRelease, sw);
+            TypeTreeUtility.WriteDumpFile(TransferInstructionFlags.SerializeGameRelease, sw);
         }
     }
 
     [MenuItem("Tools/Type Tree/Generate structs.dat")]
     static void GenerateStructsDat()
     {
-        using (var sv = new PdbService())
         using (var fs = File.OpenWrite("structs.dat"))
         using (var bw = new BinaryWriter(fs))
         {
             fs.SetLength(0);
-            TypeTreeUtility.WriteDataFile(sv, TransferInstructionFlags.SerializeGameRelease, bw);
+            TypeTreeUtility.WriteDataFile(TransferInstructionFlags.SerializeGameRelease, bw);
         }
     }
 
@@ -55,7 +53,7 @@ public unsafe static class TypeTreeExport
     static void GenerateClassIDEnum()
     {
         using (var cp = CodeDomProvider.CreateProvider("C#"))
-        using (var fs = File.OpenWrite("Assets/ClassID.cs"))
+        using (var fs = File.OpenWrite("Assets/ClassID.generated.cs"))
         using (var sw = new StreamWriter(fs))
         {
             fs.SetLength(0);
@@ -63,9 +61,9 @@ public unsafe static class TypeTreeExport
             sw.WriteLine("public enum ClassID");
             sw.WriteLine("{");
 
-            foreach (var type in UnityType.RuntimeTypes)
+            foreach (var type in Rtti.RuntimeTypes)
             {
-                var name = type.GetName();
+                var name = type.Name;
 
                 // Prepend keywords with an '@' character.
                 if (!cp.IsValidIdentifier(name))

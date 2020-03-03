@@ -2,9 +2,9 @@
 
 public unsafe readonly struct RuntimeTypeArray
 {
-    public readonly IntPtr Length;
+    public readonly uint Length;
 
-    public readonly UnityType* FlexibleData;
+    public readonly Rtti* FlexibleData;
 
     public RuntimeTypeEnumerator GetEnumerator()
     {
@@ -12,11 +12,11 @@ public unsafe readonly struct RuntimeTypeArray
             return new RuntimeTypeEnumerator(array);
     }
 
-    public ref UnityType this[long index]
+    public ref Rtti this[long index]
     {
         get
         {
-            fixed (UnityType** data = &FlexibleData)
+            fixed (Rtti** data = &FlexibleData)
                 return ref *data[index];
         }
     }
@@ -33,7 +33,7 @@ public unsafe readonly struct RuntimeTypeArray
             index      = -1;
         }
 
-        public ref UnityType Current
+        public ref Rtti Current
         {
             get
             {
@@ -46,7 +46,7 @@ public unsafe readonly struct RuntimeTypeArray
 
         public bool MoveNext()
         {
-            return ++index < array->Length.ToInt64();
+            return ++index < array->Length;
         }
     }
 }

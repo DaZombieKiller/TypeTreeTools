@@ -8,8 +8,8 @@ public static class TypeTreeUtility
 {
     public static unsafe void WriteCommonStrings(BinaryWriter bw)
     {
-        var source = (byte*)CommonString.BufferBegin;
-        var length = (byte*)CommonString.BufferEnd - source - 1;
+        var source = CommonString.BufferBegin;
+        var length = CommonString.BufferEnd - source - 1;
         var buffer = new byte[length];
 
         fixed (byte* destination = buffer)
@@ -18,7 +18,7 @@ public static class TypeTreeUtility
         bw.Write(buffer);
     }
 
-    public static unsafe void WriteDataFile(PdbService service, TransferInstructionFlags flags, BinaryWriter bw)
+    public static unsafe void WriteDataFile(TransferInstructionFlags flags, BinaryWriter bw)
     {
         foreach (char c in Application.unityVersion)
             bw.Write((byte)c);
@@ -29,7 +29,7 @@ public static class TypeTreeUtility
         var countPosition = (int)bw.BaseStream.Position;
         var typeCount     = 0;
 
-        foreach (ref var type in UnityType.RuntimeTypes)
+        foreach (ref var type in Rtti.RuntimeTypes)
         {
             ref var iter = ref type;
             while (iter.IsAbstract)
@@ -40,8 +40,12 @@ public static class TypeTreeUtility
                 iter = ref *iter.BaseClass;
             }
 
-            var obj = NativeObject.FromType(ref iter, service);
-            if (obj != null && obj->TryGetTypeTree(flags, out TypeTree tree))
+            var obj = NativeObject.GetOrProduce(iter);
+
+            if (obj == null)
+                continue;
+
+            if (obj->TryGetTypeTree(flags, out var tree))
             {
                 // Shouldn't this write type.PersistentTypeID instead?
                 // I'm leaving it as iter.PersistentTypeID for consistency
@@ -66,16 +70,16 @@ public static class TypeTreeUtility
         bw.Write(typeCount);
     }
     
-    public static unsafe void WriteDumpFile(PdbService service, TransferInstructionFlags flags, TextWriter tw)
+    public static unsafe void WriteDumpFile(TransferInstructionFlags flags, TextWriter tw)
     {
-        foreach (ref var type in UnityType.RuntimeTypes)
+        foreach (ref var type in Rtti.RuntimeTypes)
         {
             ref var iter    = ref type;
             var inheritance = string.Empty;
 
             while (true)
             {
-                inheritance += iter.GetName();
+                inheritance += iter.Name;
 
                 if (iter.BaseClass == null)
                     break;
@@ -89,7 +93,7 @@ public static class TypeTreeUtility
             iter = ref type;
             while (iter.IsAbstract)
             {
-                tw.WriteLine("// {0} is abstract", iter.GetName());
+                tw.WriteLine("// {0} is abstract", iter.Name);
 
                 if (iter.BaseClass == null)
                     break;
@@ -97,9 +101,12 @@ public static class TypeTreeUtility
                 iter = ref *iter.BaseClass;
             }
 
-            var obj = NativeObject.FromType(ref type, service);
+            var obj = NativeObject.GetOrProduce(type);
 
-            if (obj != null && obj->TryGetTypeTree(flags, out var tree))
+            if (obj == null)
+                continue;
+
+            if (obj->TryGetTypeTree(flags, out var tree))
                 tree.Dump(tw);
 
             NativeObject.DestroyTemporary(obj);
@@ -110,8 +117,8 @@ public static class TypeTreeUtility
     {
         var dictionary = new Dictionary<int, string>();
 
-        foreach (ref var type in UnityType.RuntimeTypes)
-            dictionary.Add(type.PersistentTypeID, type.GetName());
+        foreach (ref var type in Rtti.RuntimeTypes)
+            dictionary.Add(type.PersistentTypeID, type.Name);
 
         tw.Write(JsonConvert.SerializeObject(dictionary));
     }

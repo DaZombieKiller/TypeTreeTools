@@ -1,112 +1,93 @@
 ﻿using System;
-using System.Reflection;
 using System.Collections.Specialized;
 using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
 using Object = UnityEngine.Object;
 using UnityEngine;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using EasyHook;
+#if UNITY_64
+using nint = System.Int64;
+#else
+using nint = System.Int32;
+#endif
 
-// I don't know the actual size of the vtable, but 60 pointers is big enough
-// to prevent a hard crash when allocating a custom one for use with internal
-// type tree APIs (at least on Unity 2020) so it's good enough.
-[StructLayout(LayoutKind.Sequential, Size = 8 * 60)]
-public struct ObjectMethodTable
+public unsafe partial struct NativeObject
 {
-    readonly IntPtr unknown0;
-    readonly IntPtr unknown1;
-    readonly IntPtr unknown2;
-    readonly IntPtr unknown3;
-    readonly IntPtr unknown4;
-    readonly IntPtr unknown5;
-    readonly IntPtr unknown6;
-    readonly IntPtr unknown7;
-    public IntPtr GetTypeVirtualInternal;
-}
+    static readonly BitVector32.Section MemLabelSection = BitVector32.CreateSection(1 << 10);
 
-public unsafe struct NativeObject
-{
-    static readonly Func<int, Object> ForceLoadFromInstanceID;
-    static readonly Func<int, Object> FindObjectFromInstanceID;
-    static readonly Func<Object, IntPtr> GetCachedPtr;
+    static readonly BitVector32.Section IsRootOwnerSection = BitVector32.CreateSection(1 << 0, MemLabelSection);
 
-    static NativeObject()
+    static readonly BitVector32.Section TemporaryFlagsSection = BitVector32.CreateSection(1 << 0, IsRootOwnerSection);
+
+    static readonly BitVector32.Section HideFlagsSection = BitVector32.CreateSection(1 << 6, TemporaryFlagsSection);
+
+    static readonly BitVector32.Section IsPersistentSection = BitVector32.CreateSection(1 << 0, HideFlagsSection);
+
+    static readonly BitVector32.Section CachedTypeIndexSection = BitVector32.CreateSection(1 << 10, IsPersistentSection);
+
+    public VirtualMethodTable* MethodTable;
+
+    public int InstanceID;
+
+    BitVector32 bitVector;
+
+    public bool IsRootOwner
     {
-        ForceLoadFromInstanceID = (Func<int, Object>)typeof(Object)
-            .GetMethod("ForceLoadFromInstanceID", BindingFlags.NonPublic | BindingFlags.Static)
-            .CreateDelegate(typeof(Func<int, Object>));
-
-        FindObjectFromInstanceID = (Func<int, Object>)typeof(Object)
-            .GetMethod("FindObjectFromInstanceID", BindingFlags.NonPublic | BindingFlags.Static)
-            .CreateDelegate(typeof(Func<int, Object>));
-
-        GetCachedPtr = (Func<Object, IntPtr>)typeof(Object)
-            .GetMethod("GetCachedPtr", BindingFlags.NonPublic | BindingFlags.Instance)
-            .CreateDelegate(typeof(Func<Object, IntPtr>));
+        get => bitVector[IsRootOwnerSection] != 0;
+        set => bitVector[IsRootOwnerSection] = value ? 1 : 0;
     }
 
-    public ObjectMethodTable* MethodTable;
-    public int InstanceID;
-    BitVector32 objectBits;
-
-    static readonly BitVector32.Section UnknownSection = BitVector32.CreateSection(1 << 12);
-
-    static readonly BitVector32.Section HideFlagsSection = BitVector32.CreateSection(1 << 7, UnknownSection);
-
-    static readonly BitVector32.Section RuntimeTypeIndexSection = BitVector32.CreateSection(1 << 13, HideFlagsSection);
+    public bool TemporaryFlags
+    {
+        get => bitVector[TemporaryFlagsSection] != 0;
+        set => bitVector[TemporaryFlagsSection] = value ? 1 : 0;
+    }
 
     public HideFlags HideFlags
     {
-        get => (HideFlags)objectBits[HideFlagsSection];
-        set => objectBits[HideFlagsSection] = (int)value;
+        get => (HideFlags)bitVector[HideFlagsSection];
+        set => bitVector[HideFlagsSection] = (int)value;
     }
 
-    public uint RuntimeTypeIndex
+    public bool IsPersistent
     {
-        get => (uint)objectBits[RuntimeTypeIndexSection];
-        set => objectBits[RuntimeTypeIndexSection] = (int)value;
+        get => bitVector[IsPersistentSection] != 0;
+        set => bitVector[IsPersistentSection] = value ? 1 : 0;
     }
 
-    public ClassID ClassID => (ClassID)UnityType.RuntimeTypes[RuntimeTypeIndex].PersistentTypeID;
+    public uint CachedTypeIndex
+    {
+        get => (uint)bitVector[CachedTypeIndexSection];
+        set => bitVector[CachedTypeIndexSection] = (int)value;
+    }
 
-    [PdbImport("?Produce@Object@@CAPEAV1@PEBVType@Unity@@0HUMemLabelId@@W4ObjectCreationMode@@@Z")]
-    static readonly ProduceDelegate Produce;
-    delegate NativeObject* ProduceDelegate(in UnityType a, in UnityType b, int instanceID, MemoryLabel label, ObjectCreationMode creationMode);
+    public ClassID ClassID => (ClassID)Rtti.RuntimeTypes[CachedTypeIndex].PersistentTypeID;
 
-    [PdbImport("?GetSpriteAtlasDatabase@@YAAEAVSpriteAtlasDatabase@@XZ")]
-    static readonly GetSpriteAtlasDatabaseDelegate GetSpriteAtlasDatabase;
-    delegate NativeObject* GetSpriteAtlasDatabaseDelegate();
-
-    [PdbImport("?GetSceneVisibilityState@@YAAEAVSceneVisibilityState@@XZ")]
-    static readonly GetSceneVisibilityStateDelegate GetSceneVisibilityState;
-    delegate NativeObject* GetSceneVisibilityStateDelegate();
-
-    [PdbImport("?GetInspectorExpandedState@@YAAEAVInspectorExpandedState@@XZ")]
-    static readonly GetInspectorExpandedStateDelegate GetInspectorExpandedState;
-    delegate NativeObject* GetInspectorExpandedStateDelegate();
-
-    [PdbImport("?GetAnnotationManager@@YAAEAVAnnotationManager@@XZ")]
-    static readonly GetAnnotationManagerDelegate GetAnnotationManager;
-    delegate NativeObject* GetAnnotationManagerDelegate();
-
-    [PdbImport("?GetMonoManager@@YAAEAVMonoManager@@XZ")]
-    static readonly GetMonoManagerDelegate GetMonoManager;
-    delegate NativeObject* GetMonoManagerDelegate();
-
-    [PdbImport("?GenerateTypeTree@@YAXAEBVObject@@AEAVTypeTree@@W4TransferInstructionFlags@@@Z")]
-    static readonly GenerateTypeTreeDelegate GenerateTypeTree;
-    delegate void GenerateTypeTreeDelegate(in NativeObject obj, out TypeTree tree, TransferInstructionFlags flags);
-
-    [PdbImport("?GetTypeTree@TypeTreeCache@@YA_NPEBVObject@@W4TransferInstructionFlags@@AEAVTypeTree@@@Z")]
-    static readonly GetTypeTreeDelegate GetTypeTree;
-    delegate bool GetTypeTreeDelegate(in NativeObject obj, TransferInstructionFlags flags, out TypeTree tree);
-
-    [PdbImport("?DestroySingleObject@@YAXPEAVObject@@@Z")]
-    static readonly DestroySingleObjectDelegate DestroySingleObject;
-    unsafe delegate void DestroySingleObjectDelegate(NativeObject* obj);
+    static readonly Action EmptyAction = () => { };
 
     public bool TryGetTypeTree(TransferInstructionFlags flags, out TypeTree tree)
+    {
+        LocalHook.Release();
+
+        // TypeTree::Pool::Release seems to cause crashes occasionally. True cause is currently unknown.
+        // For now, it gets disabled whenever the type tree is retrieved. This will lead to memory leaks,
+        // but the editor is only intended to be used to dump the tree and then closed.
+        using (var hook = LocalHook.Create(TypeTree.Pool.Release, EmptyAction, null))
+        {
+            hook.ThreadACL.SetInclusiveACL(new[] { 0 });
+            if (Rtti.RuntimeTypes[CachedTypeIndex].IsAbstract)
+            {
+                var type = Rtti.RuntimeTypes[CachedTypeIndex];
+                using (new ProduceAbstractScope(&type))
+                    return TryGetTypeTreeImpl(flags, out tree);
+            }
+
+            return TryGetTypeTreeImpl(flags, out tree);
+        }
+    }
+
+    bool TryGetTypeTreeImpl(TransferInstructionFlags flags, out TypeTree tree)
     {
         if (GetTypeTree != null)
         {
@@ -125,22 +106,15 @@ public unsafe struct NativeObject
         return false;
     }
 
-    public static Object ToObject(NativeObject* obj)
+    public static Object ToObject(NativeObject* ptr)
     {
-        if (obj == null)
+        if (ptr == null)
             return null;
 
-        return ToObject(in *obj);
-    }
-
-    public static Object ToObject(in NativeObject obj)
-    {
-        var managedObject = FindObjectFromInstanceID(obj.InstanceID);
-
-        if (managedObject)
-            return managedObject;
-
-        return ForceLoadFromInstanceID(obj.InstanceID);
+        var raw        = RawUnityObject.FromObject(new Object());
+        raw.CachedPtr  = ptr;
+        raw.InstanceID = ptr->InstanceID;
+        return raw.Object;
     }
 
     public static NativeObject* FromObject(Object obj)
@@ -148,10 +122,10 @@ public unsafe struct NativeObject
         if (obj == null)
             return null;
 
-        return (NativeObject*)GetCachedPtr(obj);
+        return RawUnityObject.FromObject(obj).CachedPtr;
     }
 
-    public static NativeObject* FromType(ref UnityType type, PdbService service)
+    public static NativeObject* GetOrProduce(in Rtti type)
     {
         switch ((ClassID)type.PersistentTypeID)
         {
@@ -177,12 +151,19 @@ public unsafe struct NativeObject
             // If the type is abstract, we need to perform some voodoo to make it producible.
             if (type.IsAbstract)
             {
-                using (new ProduceAbstractScope(service, (UnityType*)Unsafe.AsPointer(ref type)))
-                    return Produce(in type, in type, 0, default, ObjectCreationMode.Default);
+                var producible = type;
+
+                using (new ProduceAbstractScope(&producible))
+                    return Produce(producible, producible, 0, default, ObjectCreationMode.Default);
             }
 
-            return Produce(in type, in type, 0, default, ObjectCreationMode.Default);
+            return Produce(type, type, 0, default, ObjectCreationMode.Default);
         }
+    }
+
+    static NativeObject* ProduceAbstract(in Rtti type)
+    {
+        return null;
     }
 
     public static void DestroyTemporary(NativeObject* obj)
@@ -193,10 +174,10 @@ public unsafe struct NativeObject
         // The object may have been forcefully produced from an abstract type.
         // We'll need to free the custom method table as well as use a special
         // method for destroying the object.
-        if (UnityType.RuntimeTypes[obj->RuntimeTypeIndex].IsAbstract)
+        if (Rtti.RuntimeTypes[obj->CachedTypeIndex].IsAbstract)
         {
             var methodTable = obj->MethodTable;
-            DestroySingleObject(obj);
+            DestroySingleObject(ref *obj);
             UnsafeUtility.Free(methodTable, Allocator.Persistent);
             return;
         }
@@ -210,5 +191,23 @@ public unsafe struct NativeObject
             return;
 
         Object.DestroyImmediate(ToObject(obj));
+    }
+
+    // I don't know the actual size of the vtable, but 60 pointers is big enough
+    // to prevent a hard crash when allocating a custom one for use with internal
+    // type tree APIs (at least on Unity 2020) so it's good enough.
+    [StructLayout(LayoutKind.Explicit, Size = sizeof(nint) * 60)]
+    public struct VirtualMethodTable
+    {
+        [FieldOffset(sizeof(nint) * 8)]
+        IntPtr getTypeVirtualInternal;
+
+        public delegate ref readonly Rtti GetTypeVirtualInternalDelegate(in NativeObject obj);
+
+        public UnmanagedDelegate<GetTypeVirtualInternalDelegate> GetTypeVirtualInternal
+        {
+            get => getTypeVirtualInternal;
+            set => getTypeVirtualInternal = value;
+        }
     }
 }

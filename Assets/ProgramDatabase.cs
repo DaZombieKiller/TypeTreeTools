@@ -1,41 +1,38 @@
 ﻿using System;
-using System.IO;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 #if UNITY_EDITOR
 using Dia2Lib;
 #else
+using System.IO;
 using System.IO.Pipes;
+using UnityEngine;
 #endif
 
-public class PdbService : IDisposable
+public static class ProgramDatabase
 {
-    public ProcessModule Module { get; }
+    static readonly ProcessModule module;
 #if UNITY_EDITOR
-    readonly DiaSource dia;
-    IDiaSession session;
+    static readonly DiaSource dia;
+    static readonly IDiaSession session;
 #else
-    readonly Process process;
-    readonly StreamWriter writer;
-    readonly StreamReader reader;
-    readonly NamedPipeServerStream server;
-
-    const string PipeName = "Unity.PdbService";
+    static readonly Process process;
+    static readonly StreamWriter writer;
+    static readonly StreamReader reader;
+    static readonly NamedPipeServerStream server;
 #endif
 
-    public PdbService()
-        : this(GetUnityModule())
+    static ProgramDatabase()
     {
-    }
-
-    public PdbService(ProcessModule module)
-    {
-        Module = module;
+        module = GetUnityModule();
     #if UNITY_EDITOR
         dia = new DiaSource();
+        dia.loadDataForExe(module.FileName, null, null);
+        dia.openSession(out session);
     #else
-        server  = new NamedPipeServerStream(PipeName, PipeDirection.InOut);
-        process = new Process
+        const string PipeName = "Unity.PdbService";
+        server                = new NamedPipeServerStream(PipeName, PipeDirection.InOut);
+        process               = new Process
         {
             StartInfo = new ProcessStartInfo
             {
@@ -53,8 +50,19 @@ public class PdbService : IDisposable
 
         writer = new StreamWriter(server) { AutoFlush = true };
         reader = new StreamReader(server);
+
+        writer.WriteLine("InitFromExe");
+        writer.WriteLine(module.FileName);
+
+        Application.quitting += () =>
+        {
+            reader.Dispose();
+            writer.Dispose();
+            server.Dispose();
+            process.Kill();
+            process.Dispose();
+        };
     #endif
-        InitFromExe(module.FileName);
     }
 
     static ProcessModule GetUnityModule()
@@ -68,22 +76,11 @@ public class PdbService : IDisposable
         return Process.GetCurrentProcess().MainModule;
     }
 
-    void InitFromExe(string path)
-    {
-    #if UNITY_EDITOR
-        dia.loadDataForExe(path, Path.GetDirectoryName(path), null);
-        dia.openSession(out session);
-    #else
-        writer.WriteLine("InitFromExe");
-        writer.WriteLine(path);
-    #endif
-    }
-
-    public bool TryGetAddressForSymbol(string symbolName, out IntPtr address)
+    public static bool TryGetAddressForSymbol(string symbolName, out IntPtr address)
     {
         if (TryGetRelativeVirtualAddress(symbolName, out uint rva))
         {
-            address = new IntPtr(Module.BaseAddress.ToInt64() + rva);
+            address = new IntPtr(module.BaseAddress.ToInt64() + rva);
             return true;
         }
 
@@ -91,7 +88,7 @@ public class PdbService : IDisposable
         return false;
     }
 
-    public bool TryGetDelegateForSymbol(string symbolName, Type delegateType, out Delegate method)
+    public static bool TryGetDelegateForSymbol(string symbolName, Type delegateType, out Delegate method)
     {
         if (TryGetAddressForSymbol(symbolName, out IntPtr address))
         {
@@ -103,7 +100,7 @@ public class PdbService : IDisposable
         return false;
     }
 
-    public bool TryGetDelegateForSymbol<T>(string symbolName, out T method)
+    public static bool TryGetDelegateForSymbol<T>(string symbolName, out T method)
         where T : Delegate
     {
         if (TryGetAddressForSymbol(symbolName, out IntPtr address))
@@ -116,7 +113,7 @@ public class PdbService : IDisposable
         return false;
     }
 
-    public bool TryGetRelativeVirtualAddress(string symbolName, out uint rva)
+    public static bool TryGetRelativeVirtualAddress(string symbolName, out uint rva)
     {
     #if UNITY_EDITOR
         session.globalScope.findChildren(
@@ -144,16 +141,5 @@ public class PdbService : IDisposable
 
         rva = 0;
         return false;
-    }
-
-    public void Dispose()
-    {
-    #if !UNITY_EDITOR
-        reader.Dispose();
-        writer.Dispose();
-        server.Dispose();
-        process.Kill();
-        process.Dispose();
-    #endif
     }
 }

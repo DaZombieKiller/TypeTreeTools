@@ -10,15 +10,11 @@ public unsafe struct ProduceAbstractScope : IDisposable
     GCHandle produceHandle;
     GCHandle getTypeHandle;
     readonly IntPtr originalProduce;
-    readonly UnityType* type;
     readonly LocalHook transferHook;
 
-    public ProduceAbstractScope(PdbService service, UnityType* type)
+    public ProduceAbstractScope(Rtti* type)
         : this()
     {
-        if (service == null)
-            throw new ArgumentNullException(nameof(service));
-
         if (type == null)
             throw new ArgumentNullException(nameof(type));
 
@@ -27,19 +23,23 @@ public unsafe struct ProduceAbstractScope : IDisposable
 
         // In order to generate type trees for abstract types, we need to hook
         // VirtualRedirectTransfer to call the appropriate Transfer method on the type.
-        var iter = this.type = type;
-        while (iter != null && !TryHookTransfer(service, iter->GetName(), out transferHook))
-            iter = iter->BaseClass;
+        for (var iter = type; iter != null; iter = iter->BaseClass)
+        {
+            if (TryHookTransfer(iter->Name, out transferHook))
+                break;
+        }
 
         if (transferHook == null)
             throw new ArgumentException("Couldn't locate a ::Transfer method for type.", nameof(type));
 
         // We also need to locate a constructor that we can call, as not all of the
         // abstract types actually have one defined.
-        iter = type;
         ObjectConstructorDelegate ctor = null;
-        while (iter != null && !TryFindConstructor(service, iter->GetName(), out ctor))
-            iter = iter->BaseClass;
+        for (var iter = type; iter != null; iter = iter->BaseClass)
+        {
+            if (TryFindConstructor(iter->Name, out ctor))
+                break;
+        }
 
         if (ctor == null)
             throw new ArgumentException("Couldn't locate a constructor for type.", nameof(type));
@@ -61,17 +61,18 @@ public unsafe struct ProduceAbstractScope : IDisposable
 
         // Pin the produce method to avoid GC and assign it to the type.
         // Also set IsAbstract to false to allow the type to be produced.
-        produceHandle       = GCHandle.Alloc(produce, GCHandleType.Pinned);
-        originalProduce     = type->ProduceHelper;
-        type->ProduceHelper = Marshal.GetFunctionPointerForDelegate(produce);
-        type->IsAbstract    = false;
+        produceHandle    = GCHandle.Alloc(produce, GCHandleType.Pinned);
+        originalProduce  = type->Producer.Pointer;
+        type->Producer   = produce;
+        type->IsAbstract = false;
     }
 
-    bool TryHookTransfer(PdbService service, string typeName, out LocalHook hook)
+    bool TryHookTransfer(string typeName, out LocalHook hook)
     {
-        if (service.TryGetAddressForSymbol($"?VirtualRedirectTransfer@{typeName}@@UEAAXAEAVGenerateTypeTreeTransfer@@@Z", out var original) &&
-            service.TryGetAddressForSymbol($"??$Transfer@VGenerateTypeTreeTransfer@@@{typeName}@@IEAAXAEAVGenerateTypeTreeTransfer@@@Z", out var transfer))
+        if (ProgramDatabase.TryGetAddressForSymbol($"?VirtualRedirectTransfer@{typeName}@@UEAAXAEAVGenerateTypeTreeTransfer@@@Z", out var original) &&
+            ProgramDatabase.TryGetAddressForSymbol($"??$Transfer@VGenerateTypeTreeTransfer@@@{typeName}@@IEAAXAEAVGenerateTypeTreeTransfer@@@Z", out var transfer))
         {
+            LocalHook.Release();
             hook = LocalHook.CreateUnmanaged(original, transfer, IntPtr.Zero);
             hook.ThreadACL.SetInclusiveACL(new[] { 0 });
             return true;
@@ -81,25 +82,25 @@ public unsafe struct ProduceAbstractScope : IDisposable
         return false;
     }
 
-    bool TryFindConstructor(PdbService service, string typeName, out ObjectConstructorDelegate ctor)
+    bool TryFindConstructor(string typeName, out ObjectConstructorDelegate ctor)
     {
-        return service.TryGetDelegateForSymbol(
+        return ProgramDatabase.TryGetDelegateForSymbol(
             $"??0{typeName}@@QEAA@UMemLabelId@@W4ObjectCreationMode@@@Z",
             out ctor
         );
     }
 
-    GetTypeVirtualInternalDelegate CreateGetTypeDelegate(uint typeIndex)
+    NativeObject.VirtualMethodTable.GetTypeVirtualInternalDelegate CreateGetTypeDelegate(uint typeIndex)
     {
-        return (in NativeObject obj) => ref UnityType.RuntimeTypes[typeIndex];
+        return (in NativeObject obj) => ref Rtti.RuntimeTypes[typeIndex];
     }
 
-    ProduceHelperDelegate CreateProduceHelper(int objectSize, uint typeIndex, IntPtr getType, ObjectConstructorDelegate ctor)
+    ObjectProducerDelegate CreateProduceHelper(int objectSize, uint typeIndex, IntPtr getType, ObjectConstructorDelegate ctor)
     {
         return (label, mode) =>
         {
+            var vtable = (NativeObject.VirtualMethodTable*)UnsafeUtility.Malloc(sizeof(NativeObject.VirtualMethodTable), 8, Allocator.Persistent);
             var alloc  = (NativeObject*)UnsafeUtility.Malloc(objectSize, 8, Allocator.Persistent);
-            var vtable = (ObjectMethodTable*)UnsafeUtility.Malloc(sizeof(ObjectMethodTable), 8, Allocator.Persistent);
 
             // Call the C++ constructor
             ctor.Invoke(alloc, label, mode);
@@ -108,8 +109,10 @@ public unsafe struct ProduceAbstractScope : IDisposable
             // to call a custom method that returns the correct runtime type.
             *vtable                        = *alloc->MethodTable;
             vtable->GetTypeVirtualInternal = getType;
-            alloc->MethodTable             = vtable;
-            alloc->RuntimeTypeIndex        = typeIndex;
+
+            // Assign the new method table and type index to the object.
+            alloc->MethodTable     = vtable;
+            alloc->CachedTypeIndex = typeIndex;
             return alloc;
         };
     }
@@ -123,17 +126,5 @@ public unsafe struct ProduceAbstractScope : IDisposable
         produceHandle.Free();
         getTypeHandle.Free();
         constructorHandle.Free();
-
-        // Restore the original produce helper.
-        type->ProduceHelper = originalProduce;
-
-        // Restore 'abstractness' of the type.
-        type->IsAbstract = true;
     }
-
-    delegate ref readonly UnityType GetTypeVirtualInternalDelegate(in NativeObject obj);
-
-    delegate NativeObject* ProduceHelperDelegate(MemoryLabel label, ObjectCreationMode mode);
-
-    delegate void ObjectConstructorDelegate(NativeObject* self, MemoryLabel label, ObjectCreationMode mode);
 }
