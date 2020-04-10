@@ -5,12 +5,12 @@ public unsafe partial struct Rtti
 {
     public Rtti* BaseClass;
     IntPtr producer;
-    readonly IntPtr namePtr;
-    readonly IntPtr nativeNamespacePtr;
+    readonly IntPtr name;
+    readonly IntPtr nativeNamespace;
 #if UNITY_2017_2_OR_NEWER
-    readonly IntPtr modulePtr;
+    readonly IntPtr module;
 #endif
-    public int PersistentTypeID;
+    public ClassID PersistentTypeID;
     public int ByteSize;
     public uint RuntimeTypeIndex;
     public uint DescendantCount;
@@ -20,17 +20,17 @@ public unsafe partial struct Rtti
     public bool IsEditorOnly;
 #endif
 
-    public UnmanagedDelegate<ObjectProducerDelegate> Producer
+    public FunctionPointer<ObjectProducerDelegate> Producer
     {
-        get => new UnmanagedDelegate<ObjectProducerDelegate> { Pointer = producer };
+        get => new FunctionPointer<ObjectProducerDelegate> { Pointer = producer };
         set => producer = value.Pointer;
     }
 
-    public string Name => Marshal.PtrToStringAnsi(namePtr);
+    public string Name => Marshal.PtrToStringAnsi(name);
 
-    public string NativeNamespace => Marshal.PtrToStringAnsi(nativeNamespacePtr);
+    public string NativeNamespace => Marshal.PtrToStringAnsi(nativeNamespace);
 
 #if UNITY_2017_2_OR_NEWER
-    public string Module => Marshal.PtrToStringAnsi(modulePtr);
+    public string Module => Marshal.PtrToStringAnsi(module);
 #endif
 }

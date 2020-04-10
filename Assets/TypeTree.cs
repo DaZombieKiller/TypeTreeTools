@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Runtime.CompilerServices;
 #if UNITY_64
 using nint = System.Int64;
 #else
@@ -8,17 +7,15 @@ using nint = System.Int32;
 
 public unsafe partial struct TypeTree
 {
-    readonly void* dataPointer;
+    public readonly Pointer<ShareableData> Data;
 
-    ref readonly ShareableData Data => ref Unsafe.AsRef<ShareableData>(dataPointer); 
+    public ref readonly DynamicArray<TypeTreeNode> Nodes => ref Data.Value.Nodes;
 
-    public ref readonly DynamicArray<TypeTreeNode> Nodes => ref Data.Nodes;
-
-    public ref readonly DynamicArray<byte> StringBuffer => ref Data.StringBuffer;
+    public ref readonly DynamicArray<byte> StringBuffer => ref Data.Value.StringBuffer;
 
     public TypeTreeIterator GetIterator()
     {
-        return new TypeTreeIterator(dataPointer);
+        return new TypeTreeIterator(Data.Address);
     }
 
     public struct ShareableData

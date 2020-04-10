@@ -88,6 +88,26 @@ public static class ProgramDatabase
         return false;
     }
 
+    public static bool TryGetSymbolForAddress(IntPtr address, out IDiaSymbol symbol)
+    {
+        session.globalScope.findChildrenExByRVA(
+            SymTagEnum.SymTagPublicSymbol,
+            name: null,
+            compareFlags: 0,
+            rva: (uint)(address.ToInt64() - module.BaseAddress.ToInt64()),
+            out IDiaEnumSymbols symbols
+        );
+
+        foreach (IDiaSymbol result in symbols)
+        {
+            symbol = result;
+            return true;
+        }
+
+        symbol = null;
+        return false;
+    }
+
     public static bool TryGetDelegateForSymbol(string symbolName, Type delegateType, out Delegate method)
     {
         if (TryGetAddressForSymbol(symbolName, out IntPtr address))

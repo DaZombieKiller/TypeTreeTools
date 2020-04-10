@@ -46,8 +46,8 @@ public unsafe partial struct NativeObject
 
     public HideFlags HideFlags
     {
-        get => (HideFlags)bitVector[HideFlagsSection];
-        set => bitVector[HideFlagsSection] = (int)value;
+        get => unchecked((HideFlags)bitVector[HideFlagsSection]);
+        set => bitVector[HideFlagsSection] = unchecked((int)value);
     }
 
     public bool IsPersistent
@@ -58,11 +58,11 @@ public unsafe partial struct NativeObject
 
     public uint CachedTypeIndex
     {
-        get => (uint)bitVector[CachedTypeIndexSection];
-        set => bitVector[CachedTypeIndexSection] = (int)value;
+        get => unchecked((uint)bitVector[CachedTypeIndexSection]);
+        set => bitVector[CachedTypeIndexSection] = unchecked((int)value);
     }
 
-    public ClassID ClassID => (ClassID)Rtti.RuntimeTypes[CachedTypeIndex].PersistentTypeID;
+    public ClassID ClassID => Rtti.RuntimeTypes[CachedTypeIndex].PersistentTypeID;
 
     static readonly Action EmptyAction = () => { };
 
@@ -201,10 +201,9 @@ public unsafe partial struct NativeObject
     {
         [FieldOffset(sizeof(nint) * 8)]
         IntPtr getTypeVirtualInternal;
-
         public delegate ref readonly Rtti GetTypeVirtualInternalDelegate(in NativeObject obj);
 
-        public UnmanagedDelegate<GetTypeVirtualInternalDelegate> GetTypeVirtualInternal
+        public FunctionPointer<GetTypeVirtualInternalDelegate> GetTypeVirtualInternal
         {
             get => getTypeVirtualInternal;
             set => getTypeVirtualInternal = value;

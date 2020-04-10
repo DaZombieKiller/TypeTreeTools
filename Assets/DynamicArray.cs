@@ -7,9 +7,9 @@ using nint = System.Int32;
 #endif
 
 public readonly unsafe struct DynamicArray<T>
-    where T : unmanaged
+    where T : struct
 {
-    readonly T* data;
+    readonly Pointer<T> data;
     public readonly MemoryLabel Label;
     public readonly nint Length;
     public readonly nint Capacity;
@@ -21,12 +21,12 @@ public readonly unsafe struct DynamicArray<T>
             if (index < 0 || index >= Length)
                 throw new IndexOutOfRangeException();
 
-            return ref Unsafe.Add(ref *data, new IntPtr(index));
+            return ref Unsafe.Add(ref data.Value, new IntPtr(index));
         }
     }
 
     public ref T GetPinnableReference()
     {
-        return ref *data;
+        return ref data.Value;
     }
 }

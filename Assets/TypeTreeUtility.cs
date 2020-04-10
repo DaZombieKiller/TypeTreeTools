@@ -50,7 +50,7 @@ public static class TypeTreeUtility
                 // Shouldn't this write type.PersistentTypeID instead?
                 // I'm leaving it as iter.PersistentTypeID for consistency
                 // with existing C++ code that generates structs.dat
-                bw.Write(iter.PersistentTypeID);
+                bw.Write((int)iter.PersistentTypeID);
 
                 // GUID
                 for (int i = 0, n = iter.PersistentTypeID < 0 ? 0x20 : 0x10; i < n; i++)
@@ -115,7 +115,7 @@ public static class TypeTreeUtility
 
     public static void WriteClassesJson(TextWriter tw)
     {
-        var dictionary = new Dictionary<int, string>();
+        var dictionary = new Dictionary<ClassID, string>();
 
         foreach (ref var type in Rtti.RuntimeTypes)
             dictionary.Add(type.PersistentTypeID, type.Name);
