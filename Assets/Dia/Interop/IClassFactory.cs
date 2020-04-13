@@ -16,7 +16,7 @@ namespace Dia.Interop
         );
 
         [PreserveSig]
-        int LockServer(bool fLock);
+        int LockServer(bool @lock);
     }
 
     public static class IClassFactoryExtensions
