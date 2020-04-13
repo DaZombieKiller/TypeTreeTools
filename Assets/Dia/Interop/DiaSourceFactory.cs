@@ -6,19 +6,18 @@ namespace Dia.Interop
 {
     public static class DiaSourceFactory
     {
-        [DllImport("msdia140", ExactSpelling = true, BestFitMapping = false)]
-        static extern int DllGetClassObject(
+        [DllImport("msdia140", ExactSpelling = true, BestFitMapping = false, PreserveSig = false)]
+        static extern void DllGetClassObject(
             in Guid classId,
             in Guid interfaceId,
             [MarshalAs(UnmanagedType.IUnknown)] out object @object
         );
 
-        static int DllGetClassObject<T>(in Guid classId, out T @object)
+        static void DllGetClassObject<T>(in Guid classId, out T @object)
             where T : class
         {
-            var r   = DllGetClassObject(classId, typeof(T).GUID, out var box);
+            DllGetClassObject(classId, typeof(T).GUID, out var box);
             @object = box as T;
-            return r;
         }
 
         public static IDiaDataSource CreateInstance()

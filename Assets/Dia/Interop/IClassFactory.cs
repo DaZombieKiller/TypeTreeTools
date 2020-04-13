@@ -8,25 +8,22 @@ namespace Dia.Interop
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     public interface IClassFactory
     {
-        [PreserveSig]
-        int CreateInstance(
+        void CreateInstance(
             [MarshalAs(UnmanagedType.IUnknown)] object outer,
             in Guid interfaceId,
             [MarshalAs(UnmanagedType.IUnknown)] out object instance
         );
 
-        [PreserveSig]
-        int LockServer(bool @lock);
+        void LockServer(bool @lock);
     }
 
     public static class IClassFactoryExtensions
     {
-        public static int CreateInstance<T>(this IClassFactory factory, object outer, out T instance)
+        public static void CreateInstance<T>(this IClassFactory factory, object outer, out T instance)
             where T : class
         {
-            var r    = factory.CreateInstance(outer, typeof(T).GUID, out var @object);
+            factory.CreateInstance(outer, typeof(T).GUID, out var @object);
             instance = @object as T;
-            return r;
         }
     }
 }
