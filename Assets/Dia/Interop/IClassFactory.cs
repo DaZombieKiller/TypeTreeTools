@@ -25,7 +25,7 @@ namespace Dia.Interop
             where T : class
         {
             var r    = factory.CreateInstance(outer, typeof(T).GUID, out var @object);
-            instance = (T)@object;
+            instance = @object as T;
             return r;
         }
     }

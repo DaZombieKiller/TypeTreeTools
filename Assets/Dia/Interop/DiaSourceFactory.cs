@@ -17,7 +17,7 @@ namespace Dia.Interop
             where T : class
         {
             var r   = DllGetClassObject(classId, typeof(T).GUID, out var box);
-            @object = (T)box;
+            @object = box as T;
             return r;
         }
 
