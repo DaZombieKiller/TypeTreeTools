@@ -20,8 +20,6 @@ namespace Unity.Core
 
         static readonly BitVector32.Section CachedTypeIndexSection = BitVector32.CreateSection(1 << 10, IsPersistentSection);
 
-        static readonly GetTypeTreeDelegate s_TypeTreeGetter;
-
         public IntPtr* VirtualFunctionTable;
 
         public int InstanceID;
