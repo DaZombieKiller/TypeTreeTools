@@ -40,7 +40,7 @@ namespace TypeTreeTools
             }
 
             Directory.CreateDirectory(OutputDirectory);
-            File.WriteAllText("Output/classes.json", JsonConvert.SerializeObject(dictionary));
+            File.WriteAllText(Path.Combine(OutputDirectory, "classes.json"), JsonConvert.SerializeObject(dictionary));
         }
 
         [MenuItem("Tools/Type Tree/Legacy/Export Struct Data")]
