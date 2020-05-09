@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="Generated.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net45</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <OutDir>..\Assets\Plugins\Managed</OutDir>
+    <NoConfig>True</NoConfig>
+    <NoStdLib>True</NoStdLib>
+    <AddAdditionalExplicitAssemblyReferences>False</AddAdditionalExplicitAssemblyReferences>
+    <ImplicitlyExpandNETStandardFacades>False</ImplicitlyExpandNETStandardFacades>
+    <ImplicitlyExpandDesignTimeFacades>False</ImplicitlyExpandDesignTimeFacades>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(EditorVersionMajor) &lt; 2017">
+    <!-- Target .NET 3.5 on older Unity versions -->
+    <TargetFramework>net35</TargetFramework>
+    <FrameworkPathOverride>$(EditorContentsDir)\Mono\lib\mono\unity</FrameworkPathOverride>
+  </PropertyGroup>
+</Project>
