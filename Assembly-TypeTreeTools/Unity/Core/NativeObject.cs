@@ -52,14 +52,14 @@ namespace Unity.Core
             set { bits[CachedTypeIndexSection] = (int)value; }
         }
 
-        public bool GetTypeTree(TransferInstructionFlags flags, out TypeTree tree)
+        public bool GetTypeTree(TransferInstructionFlags flags, ref TypeTree tree)
         {
             if (s_GetTypeTree != null)
-                return s_GetTypeTree(this, flags, out tree);
+                return s_GetTypeTree(this, flags, ref tree);
 
             if (s_GenerateTypeTree != null)
             {
-                s_GenerateTypeTree(this, out tree, flags);
+                s_GenerateTypeTree(this, ref tree, flags);
                 return true;
             }
 
