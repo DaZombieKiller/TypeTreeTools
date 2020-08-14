@@ -77,7 +77,9 @@ namespace TypeTreeTools
                 if (obj == null)
                     continue;
 
-                if (obj->GetTypeTree(flags, out var tree))
+                var tree = new TypeTree();
+                tree.Init();
+                if (obj->GetTypeTree(flags, ref tree))
                 {
                     // Shouldn't this write type.PersistentTypeID instead?
                     // I'm leaving it as iter.PersistentTypeID for consistency
@@ -144,7 +146,9 @@ namespace TypeTreeTools
                 if (obj == null)
                     continue;
 
-                if (obj->GetTypeTree(flags, out var tree))
+                var tree = new TypeTree();
+                tree.Init();
+                if (obj->GetTypeTree(flags, ref tree))
                     TypeTreeUtility.CreateTextDump(tree, tw);
 
                 NativeObject.DestroyIfNotSingletonOrPersistent(obj);
