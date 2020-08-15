@@ -30,13 +30,13 @@ namespace TypeTreeTools
         [MenuItem("Tools/Type Tree/Legacy/Export Classes JSON")]
         static void ExportClassesJson()
         {
-            var dictionary = new Dictionary<PersistentTypeID, string>();
+            var dictionary = new Dictionary<int, string>();
 
             for (int i = 0; i < RuntimeTypes.Count; i++)
             {
                 var type = RuntimeTypes.Types[i];
                 var name = Marshal.PtrToStringAnsi(type->ClassName);
-                dictionary.Add(type->PersistentTypeID, name);
+                dictionary.Add((int)type->PersistentTypeID, name);
             }
 
             Directory.CreateDirectory(OutputDirectory);
@@ -128,7 +128,7 @@ namespace TypeTreeTools
                     iter         = iter->Base;
                 }
 
-                tw.WriteLine("\n// classID{{{0}}}: {1}", type->PersistentTypeID, inheritance);
+                tw.WriteLine("\n// classID{{{0}}}: {1}", (int)type->PersistentTypeID, inheritance);
 
                 iter = type;
                 while (iter->IsAbstract)
@@ -141,7 +141,7 @@ namespace TypeTreeTools
                     iter = iter->Base;
                 }
 
-                var obj = NativeObject.GetOrProduce(*type);
+                var obj = NativeObject.GetOrProduce(*iter);
 
                 if (obj == null)
                     continue;
