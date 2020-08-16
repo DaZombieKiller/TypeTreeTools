@@ -63,7 +63,10 @@ namespace TypeTreeTools
                     xw.WriteEndElement();
 
                     xw.WriteStartElement("ItemGroup");
-                    foreach (var reference in assembly.allReferences)
+                    // Unity 2018.1.0f2 has a bug where assemblyReferences contains null elements
+                    // allReferences is a product of compiledAssemblyReferences and assemblyReferences
+                    // so calling assemblyReferences throws a null reference exception
+                    foreach (var reference in assembly.compiledAssemblyReferences)
                     {
                         var name = Path.GetFileNameWithoutExtension(reference);
                         var path = Path.GetFullPath(reference);
